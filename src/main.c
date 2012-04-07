@@ -26,6 +26,8 @@ void
 discover_server();
 
 struct event server_response_event;
+int server_port;
+char *server_host;
 int main(int argc, char **argv)
 {
 	event_init();
@@ -98,7 +100,16 @@ init_server_response_handler()
 void 
 server_response_handler(int fd, short what, void *arg)
 {
+	int packet_size = 
+		sizeof(NegotiationPacket) + SNAKE_HOST_MAX + 1;
 	SNAKE_DEBUG("Got response from server");
-	NegotiationPacket packet;
-	read(fd, &packet, sizeof(packet));
+	NegotiationPacket *packet = (NegotiationPacket*)malloc(packet_size);
+	read(fd, packet, packet_size);
+	
+	server_host = (char*)malloc(packet->host_name_length + 1);
+	negotiation_packet_parse(packet, &server_port,server_host);
+	
+	free(packet);
+	
+	close(fd);
 }
