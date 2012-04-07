@@ -25,9 +25,12 @@ server_response_handler(int fd, short what, void *arg);
 void 
 discover_server();
 
+void connect_to_game();
+
 struct event server_response_event;
 int server_port;
 char *server_host;
+int game_sock;
 int main(int argc, char **argv)
 {
 	event_init();
@@ -108,8 +111,46 @@ server_response_handler(int fd, short what, void *arg)
 	
 	server_host = (char*)malloc(packet->host_name_length + 1);
 	negotiation_packet_parse(packet, &server_port,server_host);
-	
 	free(packet);
-	
 	close(fd);
+	
+	connect_to_game();
+}
+
+
+void connect_to_game()
+{
+	int reuse = 1;
+    struct sockaddr_in game_addr;
+    struct hostent* host_info_ptr; 
+    long host_address;
+    
+	SNAKE_DEBUG("Connecting to game");
+    if ((game_sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
+    {
+        SNAKE_ERROR("Failed to open socket");
+        exit(EXIT_FAILURE);
+    }
+    
+    host_info_ptr = gethostbyname(server_host);
+    memcpy(&host_address, host_info_ptr->h_addr, 
+		host_info_ptr->h_length);
+    
+    memset(&game_addr, 0, sizeof(game_addr));
+    game_addr.sin_family = AF_INET;
+    game_addr.sin_addr.s_addr = htonl(host_address);
+    game_addr.sin_port = htons(server_port);
+   
+   SNAKE_DEBUG("Awaiting connection to %s:%d", server_host, server_port);
+    if (connect(game_sock, (struct sockaddr *)&game_addr,
+		sizeof(game_addr)) < 0)
+    {
+        SNAKE_ERROR("Can't connect");
+        exit(EXIT_FAILURE);
+    }  
+      
+    SNAKE_DEBUG("Connected to server"); 
+    setsockopt(game_sock, SOL_SOCKET, SO_REUSEADDR, &reuse,
+		sizeof(reuse));
+		  	
 }
