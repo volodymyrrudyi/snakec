@@ -25,8 +25,7 @@ discover_server();
 void connect_to_game();
 
 struct event server_response_event;
-uint32_t server_port;
-char *server_host;
+struct sockaddr_in server_address;
 int game_sock;
 int main(int argc, char **argv)
 {
@@ -67,6 +66,7 @@ void discover_server()
 		
 	event_add(&server_response_event, NULL);
 		
+	SNAKE_DEBUG("Discovering server");
 	sendto(client_sock, &reuse, sizeof(reuse), 0, 
 		(struct sockaddr *)&client_addr, sizeof(client_addr)); 
 	
@@ -75,16 +75,27 @@ void discover_server()
 void 
 server_response_handler(int fd, short what, void *arg)
 {
-	int packet_size = 
-		sizeof(NegotiationPacket) + SNAKE_HOST_MAX + 1;
+	struct sockaddr_in addr;
+	NegotiationPacket *packet;
+	struct hostent* host_info_ptr; 
+    long host_address;
 	SNAKE_DEBUG("Got response from server");
-	NegotiationPacket *packet = (NegotiationPacket*)malloc(packet_size);
-	read(fd, packet, packet_size);
 	
-	server_host = (char*)malloc(packet->host_name_length + 1);
-	negotiation_packet_parse(packet, &server_port,server_host);
+	
+	packet = negotiation_packet_read(fd, &addr);
+	SNAKE_DEBUG("Got response from server %s:%d", 
+		packet->host_name, packet->port);
+	
+	host_info_ptr = gethostbyname(packet->host_name);
+    memcpy(&host_address, host_info_ptr->h_addr, 
+		host_info_ptr->h_length);
+		
+    memset(&server_address, 0, sizeof(struct sockaddr_in));
+    server_address.sin_family = AF_INET;
+    server_address.sin_addr.s_addr = htonl(INADDR_ANY);
+    server_address.sin_port = htons(packet->port);
+    
 	free(packet);
-	
 	close(fd);	
 	connect_to_game();
 }
@@ -92,11 +103,8 @@ server_response_handler(int fd, short what, void *arg)
 
 void connect_to_game()
 {
-	int reuse = 1;
-    struct sockaddr_in game_addr;
-    struct hostent* host_info_ptr; 
-    long host_address;
-    
+	int reuse = 1;   
+   
 	SNAKE_DEBUG("Connecting to game");
     if ((game_sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
     {
@@ -104,19 +112,8 @@ void connect_to_game()
         exit(EXIT_FAILURE);
     }
     
-    host_info_ptr = gethostbyname(server_host);
-    memcpy(&host_address, host_info_ptr->h_addr, 
-		host_info_ptr->h_length);
     
-    memset(&game_addr, 0, sizeof(game_addr));
-    game_addr.sin_family = AF_INET;
-    bcopy((char *)host_info_ptr->h_addr,
-      (char *)&game_addr.sin_addr.s_addr,
-      host_info_ptr->h_length);
-    game_addr.sin_port = htons(server_port);
-   
-   SNAKE_DEBUG("Awaiting connection to %s:%d", server_host, server_port);
-    if (connect(game_sock, (struct sockaddr *)&game_addr,
+    if (connect(game_sock, (struct sockaddr *)&server_address,
 		sizeof(struct sockaddr_in)) < 0)
     {
         SNAKE_ERROR("Can't connect");
