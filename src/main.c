@@ -25,7 +25,7 @@ discover_server();
 void connect_to_game();
 
 struct event server_response_event;
-int server_port;
+uint32_t server_port;
 char *server_host;
 int game_sock;
 int main(int argc, char **argv)
