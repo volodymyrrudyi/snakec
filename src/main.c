@@ -138,12 +138,15 @@ void connect_to_game()
     
     memset(&game_addr, 0, sizeof(game_addr));
     game_addr.sin_family = AF_INET;
-    game_addr.sin_addr.s_addr = htonl(host_address);
+    bcopy((char *)host_info_ptr->h_addr,
+      (char *)&game_addr.sin_addr.s_addr,
+      host_info_ptr->h_length);
+   // game_addr.sin_addr.s_addr = htonl(host_address);
     game_addr.sin_port = htons(server_port);
    
    SNAKE_DEBUG("Awaiting connection to %s:%d", server_host, server_port);
     if (connect(game_sock, (struct sockaddr *)&game_addr,
-		sizeof(game_addr)) < 0)
+		sizeof(struct sockaddr_in)) < 0)
     {
         SNAKE_ERROR("Can't connect");
         exit(EXIT_FAILURE);
