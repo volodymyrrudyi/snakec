@@ -30,8 +30,6 @@
 #include <snake-proto.h>
 #include <snake-log.h>
 
-#define SNAKE_PORT 5100 
-
 void 
 server_response_handler(int fd, short what, void *arg);
 
